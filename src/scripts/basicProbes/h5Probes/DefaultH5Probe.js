@@ -9,18 +9,39 @@ var QClass = window.QClass,
         'DOMReady' : 'getDomReadyTime',
         'onLoad' : 'getOnLoadTime'
     },
-    domReadyCallbackList,
-    onLoadCallbackList;
+    defalutProbeList = (function(){
+        var a = [];
+        for(var key in probeNames){
+            a.push(key);
+        }
+        return a;
+    })();
+
+var updateDate = (function(){
+    var dateCache;
+    return function(imageCounts, imageEl, winSize){
+        if(imageEl){
+            imageCounts--;
+            var imgPos = utils.position(imageEl);
+            if(winSize.height > imgPos.top && winSize.width > imgPos.left){
+                dateCache = Date.now();
+            }
+            if(imageCounts >= 0){
+                this.probeData.first_frame_time = dateCache;
+                this.trigger('firstFrameEnd',dateCache);
+            }
+        }
+    }
+})();
 
 QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
     'extend' : ns.AbstractProbe,
 
     'initialize' : function(opts){
         this.parent(opts);
-        if(window.addEventListener){
-            this.loadProbes(opts.probeList);
-        }
+        this.probeList = opts.probeList;
         this.probeData = {};
+        this.todoChildTask = [];
     },
 
 
@@ -29,7 +50,31 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
      * @return {[type]} [description]
      */
     'getFirstPaintTime' : function(){
-        
+        var self = this;
+        if (typeof window.chrome !== 'undefined') {
+            // 支持chrome
+            var loadTime = window.chrome.loadTime();
+            var first_paint_secs = loadTime && loadTime.firstPaintTime;
+            if( !first_paint_secs ){
+                window.requestAnimationFrame(function() {
+                    loadTime = window.chrome.loadTime();
+                    first_paint_secs = loadTime && loadTime.firstPaintTime;
+                    self.probeData.first_paint = first_paint_secs * 1000;
+                    self.trigger('firstPaintEnd',self.probeData.first_paint);
+                });
+            }else{
+                self.probeData.first_paint = first_paint_secs * 1000;
+                self.trigger('firstPaintEnd',self.probeData.first_paint);
+            }
+        } else if (window.performance && window.performance.timing && (window.performance.timing.msFirstPaint !== 'undefined')) {
+            window.setTimeout(function() {
+                self.probeData.first_paint = window.performance.timing.msFirstPaint;
+                self.trigger('firstPaintEnd',self.probeData.first_paint);
+            }, 1000);
+        } else {
+            // 使用全局firstPaintTime
+            self.trigger('firstPaintEnd','全局');
+        }
     },
 
 
@@ -41,10 +86,9 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         if(this.loadTime) return this.loadTime;
         var self = this;
         var cb = function(){
-            self.loadTime = Date.now();
+            self.probeData.loadTime = Date.now();
         };
-        onLoadCallbackList ? onLoadCallbackList.push(cb) : (onLoadCallbackList = [cb]);
-        window.addEventListener( 'load', onLoadHandler, false );
+        window.addEventListener( 'load', cb, false );
     },
 
 
@@ -53,7 +97,26 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
      * @return {[type]} [description]
      */
     'getFirstFrameTime' : function(){
-
+        var winSize = utils.winSize(window),
+            imageOnLoad = 0,
+            self = this;
+        utils.onDomReady(function(){
+            var images = Array.prototype.slice.apply(document.getElementsByTagName('img'),0);
+            if(images && images.length){
+                images.forEach(function(image){
+                    imageOnLoad++;
+                    image.addEventListener('load',function(){
+                        updateDate.call(self,imageOnLoad,this,winSize);
+                    },false);
+                    image.addEventListener('error',function(){
+                        updateDate.call(self,imageOnLoad,this,winSize);
+                    },false);
+                });
+            }else{
+                self.probeData.first_frame_time = 'no_image';
+            }
+        });
+        this.getFirstFrameTime = utils.noop;
     },
 
     /**
@@ -64,10 +127,10 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         if(this.domReadyTime) return this.domReadyTime;
         var self = this;
         var cb = function(){
-            self.domReadyTime = Date.now();
+            self.probeData.domReadyTime = Date.now();
+            self.trigger('DOMReadyEnd',self.probeData.domReadyTime);
         };
-        domReadyCallbackList ? domReadyCallbackList.push(cb) : (domReadyCallbackList = [cb]);
-        utils.onDomReady(domReady);
+        utils.onDomReady(cb);
     },
 
     /**
@@ -80,29 +143,48 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         var connectionInfo = window.navigator.connection || window.navigator.mozConnection || window.navigator.webkitConnection;
         checkNetInfo(connectionInfo,function(type){
             self.probeData.netWorkType = type;
+            self.trigger('netWorkTypeEnd',self.probeData.netWorkType);
             cb && cb(type);
         });
     },
 
-    /**
-     * [加载探针]
-     * @param  {[type]} probeList [description]
-     * @return {[type]}           [description]
-     */
-    'loadProbes' : function(probeList){
-        var self = this;
-        if(probeList === undefined){
-            this.getFirstPaintTime();
-            this.getFirstFrameTime();
-            this.checkNetWorkType();
+    'run' : function(){
+        this.parent();
+        if(window.addEventListener){
+            loadProbes.call(this,this.probeList);
         }
-        if(utils.core_type(probeList) === 'array'){
-            probeList.forEach(function(item){
-                probeNames[item] && self[probeNames[item]]();
-            });
+    },
+
+    'checkChildTask' : function(taskName){
+        var index = this.todoChildTask.indexOf(taskName);
+        if(index >= 0){
+            this.todoChildTask.slice(index,1);
+        }
+        if (this.todoChildTask.length <= 0){
+            this.trigger('workDone',this.probeData);
         }
     }
 });
+
+/**
+ * [加载探针]
+ * @param  {[type]} probeList [description]
+ * @return {[type]}           [description]
+ */
+function loadProbes(probeList){
+    var self = this,
+        probes = probeList || defalutProbeList;
+    if(utils.core_type(probes) === 'array'){
+        probes.forEach(function(item){
+            self.todoChildTask.push(item);
+            self.on(item + 'end',function(){
+                self.checkChildTask(item + 'end');
+            })
+            probeNames[item] && self[probeNames[item]]();
+        });
+    }
+}
+
 
 /**
  * 获得网络信息
@@ -129,22 +211,5 @@ function checkNetInfo(connectionInfo,cb){
     }
 }
 
-function domReady(){
-    if( domReadyCallbackList && domReadyCallbackList.length ){
-        domReadyCallbackList.forEach(function(cb){
-            cb();
-        })
-    }
-    document.removeEventListener( "DOMContentLoaded", domReady, false );
-}
-
-function onLoadHandler(){
-    if( onLoadCallbackList && onLoadCallbackList.length ){
-        onLoadCallbackList.forEach(function(cb){
-            cb();
-        })
-    }
-    window.removeEventListener( "load", onLoadHandler, false );
-}
 
 module.exports = window.pfMonitor.Probes.H5Probes.DefaultH5Probe;

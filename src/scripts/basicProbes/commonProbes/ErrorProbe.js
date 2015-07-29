@@ -13,10 +13,6 @@ QClass.define('pfMonitor.Probes.common.ErrorProbe',{
 
     'singleton' : true,
 
-    'sourceError' : function(){
-        console.log(arguments);
-    },
-
     'catchError' : function(){
         console.log(arguments);
     },
@@ -24,9 +20,6 @@ QClass.define('pfMonitor.Probes.common.ErrorProbe',{
     'run' : function(){
         this.parent();
         var me = this;
-        window.sourceError = function(){
-            me.sourceError.apply(me,arguments);
-        }
         var oriWinOnError = window.onerror;
         window.onerror = function(){
             oriWinOnError && oriWinOnError.apply(window, arguments);

@@ -6,7 +6,7 @@ function monitor(probeManager){
         defaultH5Probe = new DefaultH5Probe();
 
     errorProbe.on('workDone',function(probeData){
-
+        console.log(probeData);
     })
 
     // 加载探针

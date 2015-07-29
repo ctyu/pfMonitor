@@ -1,5 +1,15 @@
 var core_type = (function(){
-    var class2type = {};
+    var class2type = {
+        '[object HTMLDocument]': 'Document',
+        '[object HTMLCollection]': 'NodeList',
+        '[object StaticNodeList]': 'NodeList',
+        '[object IXMLDOMNodeList]': 'NodeList',
+        '[object DOMWindow]': 'Window',
+        '[object global]': 'Window',
+        'null': 'Null',
+        'NaN': 'NaN',
+        'undefined': 'Undefined'
+    };
     var core_toString = Object.prototype.toString;
     var typeList = "Boolean Number String Function Array Date RegExp Object".split(" ");
     for(var i = 0,len = typeList.length;i < len;i++){
@@ -56,10 +66,85 @@ function onDomReady(callback){
     }
 }
 
+function docSize(doc) {
+    function getWidthOrHeight(clientProp) {
+        var docEl = doc.documentElement,
+            body = doc.body;
+        return Math.max(
+            body["scroll" + clientProp],
+            docEl["scroll" + clientProp],
+            body["offset" + clientProp],
+            docEl["offset" + clientProp],
+            docEl["client" + clientProp]
+        );
+    }
 
+    return {
+        width: getWidthOrHeight('Width'),
+        height: getWidthOrHeight('Height')
+    };
+}
+
+function winSize(win) {
+    function getWidthOrHeight(clientProp) {
+        return win.document.documentElement["client" + clientProp];
+    }
+
+    return {
+        width: getWidthOrHeight('Width'),
+        height: getWidthOrHeight('Height')
+    };
+}
+
+// position
+var _contains = document.compareDocumentPosition ? function (a, b) {
+    return !!(a.compareDocumentPosition(b) & 16);
+} : function (a, b) {
+    return a !== b && (a.contains ? a.contains(b) : TRUE);
+};
+
+function generalPosition(el) {
+    var box = el.getBoundingClientRect(),
+        body = el.ownerDocument.body,
+        docEl = el.ownerDocument.documentElement,
+        scrollTop = Math.max(window.pageYOffset || 0, docEl.scrollTop, body.scrollTop),
+        scrollLeft = Math.max(window.pageXOffset || 0, docEl.scrollLeft, body.scrollLeft),
+        clientTop = docEl.clientTop || body.clientTop || 0,
+        clientLeft = docEl.clientLeft || body.clientLeft || 0;
+
+    return {
+        left: box.left + scrollLeft - clientLeft,
+        top: box.top + scrollTop - clientTop
+    };
+}
+
+function diff(pos, bPos) {
+    return {
+        left: pos.left - bPos.left,
+        top: pos.top - bPos.top
+    };
+}
+
+function _position(el) {
+    if (!_contains(el.ownerDocument.body, el)) {
+        return {
+            top: NaN,
+            left: NaN
+        };
+    }
+
+    return arguments.length > 1 ?
+        diff(generalPosition(el), generalPosition(arguments[1])) :
+        generalPosition(el);
+}
+
+function noop(){}
 
 module.exports = {
     'core_type' : core_type,
     'logger' : logger,
-    'onDomReady' : onDomReady
+    'onDomReady' : onDomReady,
+    'winSize' : winSize,
+    'position' : _position,
+    'noop' : noop
 }
