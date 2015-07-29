@@ -1,2 +1,4 @@
 #ignore fekit_module
 /fekit_modules/*
+/dev/*
+/ver/*

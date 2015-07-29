@@ -1,5 +1,5 @@
 !require('QClass');
-var CustEvent = require('./CustEvent.js'),
+var CustEvent = require('./CustEvents.js'),
     QClass = window.QClass,
     noop = function(){},
     statusValue = {
