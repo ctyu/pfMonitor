@@ -1,21 +1,19 @@
+!require('QClass');
 var probeManager = require('./probeManager.js'),
     utils = require('./common/utils.js'),
-    QClass = require('QClass'),
-    CustEvent = require('./common/CustEvents.js'),
     monitorCache = {},
     monitorDataCache = {};
 
 QClass.define('pfMonitor.MonitorManager',{
-    'mixin' : [CustEvent],
-
     'singleton' : true,
 
     'addMonitor' : (function(){
-        var childMonitor = [],
-            self = this;
+        var childMonitor = [];
         return function(monitorName, monitor){
+            var self = this;
             childMonitor.push(monitorName);
             monitor.on('measureEnd',function(monitorData){
+                console.log('measureEnd')
                 self.trigger('monitorMeasureEnd',monitorName);
                 monitorDataCache[monitorName] = monitorData;
                 var index = childMonitor.indexOf(monitorName);
@@ -25,23 +23,44 @@ QClass.define('pfMonitor.MonitorManager',{
         }
     })(),
 
-    'load' : function(monitors){
-        if( utils.core_type(monitors) === 'object' ){
-            for(var monitorName in monitors){
-                var monitor = monitors[monitorName];
-                monitorCache[monitorName] = monitor.init(probeManager);
-                this.addMonitor(monitorName, monitor);
-                return monitor;
+    'load' : function(name,monitor){
+        if(name && monitor){
+            monitorCache[name] = monitor.init(probeManager);
+            this.addMonitor(name, monitor);
+            return monitor;
+        }else if( utils.core_type(name) === 'object' ){
+            for(var monitorName in name){
+                monitor = name[monitorName];
+                this.load(monitorName,monitor);
             }
         }
     },
 
     'getMonitorData' : function(){
         return this.monitorDataCache;
+    },
+
+    'getStartTime' : function(){
+        if(!this.startTime){
+            var timing = window.performance && window.performance.timing || {};
+            this.startTime = timing.navigationStart || window.startTime;
+            this.responseEndTime = timing.responseEnd;
+        }
+        return this.startTime;
+    },
+
+    'getResponseEndTime' : function(){
+        if(!this.responseEndTime){
+            var timing = window.performance && window.performance.timing || {};
+            this.startTime = timing.navigationStart || window.startTime;
+            this.responseEndTime = timing.responseEnd;
+        }
+        return this.responseEndTime;
     }
 });
 
-window.monitorManager = new window.pfMonitor.MonitorManager();
+utils.supportCustEvent(window.pfMonitor.MonitorManager);
 
-module.exports = window.monitorManager;
+
+module.exports = new window.pfMonitor.MonitorManager();
 

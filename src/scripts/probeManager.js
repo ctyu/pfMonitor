@@ -21,7 +21,9 @@ function getProbeByName(name){
     return probeCache[name];
 }
 
-module.exports = {
+window.probeManager = {
     'load' : load,
     'getProbeByName' : getProbeByName
 }
+
+module.exports = probeManager;

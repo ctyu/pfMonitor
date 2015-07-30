@@ -1,5 +1,5 @@
 !require('QClass');
-var CustEvent = require('./CustEvents.js'),
+var utils = require('./utils.js'),
     QClass = window.QClass,
     noop = function(){},
     statusValue = {
@@ -9,6 +9,7 @@ var CustEvent = require('./CustEvents.js'),
         'offLine' : 3
     };
 
+
 function changeStatus(instance, status){
     if(statusValue[instance.status] < statusValue[status]){
         instance && (instance.status = status)
@@ -17,7 +18,6 @@ function changeStatus(instance, status){
 }
 
 QClass.define('pfMonitor.common.AbstractProbe',{
-    'mixin' : [CustEvent],
     'initialize' : function(opts){
         this.type = 'Probe';
         this.status = 'pending';
@@ -51,4 +51,9 @@ QClass.define('pfMonitor.common.AbstractProbe',{
         this.run = noop;
         changeStatus(this,'offLine');
     }
-})
+});
+
+utils.supportCustEvent(window.pfMonitor.common.AbstractProbe);
+
+
+module.exports = window.pfMonitor.common.AbstractProbe;

@@ -1,3 +1,4 @@
+var CustEvents = require('./CustEvents.js');
 var core_type = (function(){
     var class2type = {
         '[object HTMLDocument]': 'Document',
@@ -140,11 +141,26 @@ function _position(el) {
 
 function noop(){}
 
+function supportCustEvent(obj){
+    var type = core_type(obj);
+    if( type === 'object'){
+        for(var key in CustEvents){
+            if(obj[key] === undefined){
+                obj[key] = CustEvents[key];
+            }
+        }
+    }else if( type === 'function' ){
+        obj = obj.prototype;
+        supportCustEvent(obj);
+    }
+}
+
 module.exports = {
     'core_type' : core_type,
     'logger' : logger,
     'onDomReady' : onDomReady,
     'winSize' : winSize,
     'position' : _position,
-    'noop' : noop
+    'noop' : noop,
+    'supportCustEvent' : supportCustEvent
 }

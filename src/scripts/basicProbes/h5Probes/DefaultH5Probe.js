@@ -38,6 +38,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
     'extend' : ns.AbstractProbe,
 
     'initialize' : function(opts){
+        opts = opts || {};
         this.parent(opts);
         this.probeList = opts.probeList;
         this.probeData = {};
@@ -66,13 +67,14 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
                 self.probeData.first_paint = first_paint_secs * 1000;
                 self.trigger('firstPaintEnd',self.probeData.first_paint);
             }
-        } else if (window.performance && window.performance.timing && (window.performance.timing.msFirstPaint !== 'undefined')) {
+        } else if (window.performance && window.performance.timing && (window.performance.timing.msFirstPaint !== undefined)) {
             window.setTimeout(function() {
                 self.probeData.first_paint = window.performance.timing.msFirstPaint;
                 self.trigger('firstPaintEnd',self.probeData.first_paint);
             }, 1000);
         } else {
             // 使用全局firstPaintTime
+            self.probeData.first_paint = '全局';
             self.trigger('firstPaintEnd','全局');
         }
     },
@@ -87,6 +89,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         var self = this;
         var cb = function(){
             self.probeData.loadTime = Date.now();
+            self.trigger('onLoadEnd',self.probeData.loadTime);
         };
         window.addEventListener( 'load', cb, false );
     },
@@ -101,7 +104,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
             imageOnLoad = 0,
             self = this;
         utils.onDomReady(function(){
-            var images = Array.prototype.slice.apply(document.getElementsByTagName('img'),0);
+            var images = Array.prototype.slice.call(document.getElementsByTagName('img'),0);
             if(images && images.length){
                 images.forEach(function(image){
                     imageOnLoad++;
@@ -114,6 +117,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
                 });
             }else{
                 self.probeData.first_frame_time = 'no_image';
+                self.trigger('firstFrameEnd',self.probeData.first_frame_time);
             }
         });
         this.getFirstFrameTime = utils.noop;
@@ -158,7 +162,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
     'checkChildTask' : function(taskName){
         var index = this.todoChildTask.indexOf(taskName);
         if(index >= 0){
-            this.todoChildTask.slice(index,1);
+            this.todoChildTask.splice(index,1);
         }
         if (this.todoChildTask.length <= 0){
             this.trigger('workDone',this.probeData);
@@ -177,9 +181,12 @@ function loadProbes(probeList){
     if(utils.core_type(probes) === 'array'){
         probes.forEach(function(item){
             self.todoChildTask.push(item);
-            self.on(item + 'end',function(){
-                self.checkChildTask(item + 'end');
+            self.on(item + 'End',function(){
+                self.checkChildTask(item);
             })
+        });
+        // 分开保证先push后执行
+        probes.forEach(function(item){
             probeNames[item] && self[probeNames[item]]();
         });
     }
@@ -207,7 +214,7 @@ function checkNetInfo(connectionInfo,cb){
         cb && cb(type);
     }else{
         // 通过请求时间推测网络类型
-        
+        cb && cb(type);
     }
 }
 

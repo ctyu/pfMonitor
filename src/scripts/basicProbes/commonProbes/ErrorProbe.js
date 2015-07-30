@@ -1,4 +1,5 @@
 require('QClass');
+require('../../common/AbstractProbe.js');
 var QClass = window.QClass,
     ns = window.pfMonitor.common;
 
@@ -25,6 +26,7 @@ QClass.define('pfMonitor.Probes.common.ErrorProbe',{
             oriWinOnError && oriWinOnError.apply(window, arguments);
             me.catchError.apply(me, arguments);
         }
+        this.trigger('workDone');
     }
 });
 
