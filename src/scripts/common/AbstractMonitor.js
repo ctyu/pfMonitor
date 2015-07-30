@@ -24,9 +24,9 @@ QClass.define('pfMonitor.common.AbstractMonitor',{
                     var index = regList.indexOf(probeName);
                     if(index >= 0){
                         regList.splice(index,1);
-                        if(regList.length === 0){
-                            self.trigger('measureEnd',self.probeDataCache);
-                        }
+                    }
+                    if(regList.length === 0){
+                        self.trigger('measureEnd',self.probeDataCache);
                     }
                 })
             }else{
@@ -37,7 +37,11 @@ QClass.define('pfMonitor.common.AbstractMonitor',{
                 }
             }
         }
-    })()
+    })(),
+
+    'getProbe' : function(id){
+        return this.probeCache[id];
+    }
 });
 
 utils.supportCustEvent(window.pfMonitor.common.AbstractMonitor);

@@ -25,6 +25,10 @@ QClass.define('pfMonitor.Monitor.BasicH5Monitor',{
             'errorProbe' : errorProbe,
             'defaultH5Probe' : defaultH5Probe
         });
+    },
+
+    'updateFirstFrameTime' : function(){
+        this.getProbe('defaultH5Probe').updateFirstFrameTime();
     }
 })
 

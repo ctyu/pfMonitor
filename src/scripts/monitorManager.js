@@ -13,7 +13,6 @@ QClass.define('pfMonitor.MonitorManager',{
             var self = this;
             childMonitor.push(monitorName);
             monitor.on('measureEnd',function(monitorData){
-                console.log('measureEnd')
                 self.trigger('monitorMeasureEnd',monitorName);
                 monitorDataCache[monitorName] = monitorData;
                 var index = childMonitor.indexOf(monitorName);
@@ -25,7 +24,8 @@ QClass.define('pfMonitor.MonitorManager',{
 
     'load' : function(name,monitor){
         if(name && monitor){
-            monitorCache[name] = monitor.init(probeManager);
+            monitorCache[name] = monitor;
+            monitor.init(probeManager);
             this.addMonitor(name, monitor);
             return monitor;
         }else if( utils.core_type(name) === 'object' ){
@@ -37,7 +37,7 @@ QClass.define('pfMonitor.MonitorManager',{
     },
 
     'getMonitorData' : function(){
-        return this.monitorDataCache;
+        return monitorDataCache;
     },
 
     'getStartTime' : function(){
@@ -56,6 +56,10 @@ QClass.define('pfMonitor.MonitorManager',{
             this.responseEndTime = timing.responseEnd;
         }
         return this.responseEndTime;
+    },
+
+    'getMonitor' : function(name){
+        return monitorCache[name];
     }
 });
 

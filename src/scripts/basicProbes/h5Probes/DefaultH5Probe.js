@@ -15,24 +15,33 @@ var QClass = window.QClass,
             a.push(key);
         }
         return a;
-    })();
+    })(),
+    performanceTiming = window.performance && window.performance.timing || {},
+    winSize = utils.winSize(window);
 
-var updateDate = (function(){
-    var dateCache;
-    return function(imageCounts, imageEl, winSize){
-        if(imageEl){
-            imageCounts--;
-            var imgPos = utils.position(imageEl);
-            if(winSize.height > imgPos.top && winSize.width > imgPos.left){
-                dateCache = Date.now();
-            }
-            if(imageCounts >= 0){
-                this.probeData.first_frame_time = dateCache;
-                this.trigger('firstFrameEnd',dateCache);
-            }
+
+function updateDate(imageEl, winSize){
+    if(imageEl){
+        var imgPos = utils.position(imageEl);
+        if(winSize.height > imgPos.top && winSize.width > imgPos.left){
+            return Date.now();
         }
     }
-})();
+}
+
+// updateDate被调用多少次后调用afterFn
+updateDate.afterCalled = function(time, afterFn){
+    var self = this,
+        resultEnd;
+    return function(){
+        var result = self.apply(self, arguments);
+        resultEnd = result || resultEnd;
+        if((--time)<=0){
+            return afterFn(resultEnd);
+        }
+        return result;
+    }
+}
 
 QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
     'extend' : ns.AbstractProbe,
@@ -74,8 +83,8 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
             }, 1000);
         } else {
             // 使用全局firstPaintTime
-            self.probeData.first_paint = '全局';
-            self.trigger('firstPaintEnd','全局');
+            self.probeData.first_paint = window.firstPaintTime;
+            self.trigger('firstPaintEnd',window.firstPaintTime);
         }
     },
 
@@ -88,7 +97,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         if(this.loadTime) return this.loadTime;
         var self = this;
         var cb = function(){
-            self.probeData.loadTime = Date.now();
+            self.probeData.loadTime = performanceTiming.loadEventEnd || Date.now();
             self.trigger('onLoadEnd',self.probeData.loadTime);
         };
         window.addEventListener( 'load', cb, false );
@@ -100,27 +109,47 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
      * @return {[type]} [description]
      */
     'getFirstFrameTime' : function(){
-        var winSize = utils.winSize(window),
-            imageOnLoad = 0,
-            self = this;
+        var self = this;
         utils.onDomReady(function(){
-            var images = Array.prototype.slice.call(document.getElementsByTagName('img'),0);
-            if(images && images.length){
-                images.forEach(function(image){
-                    imageOnLoad++;
-                    image.addEventListener('load',function(){
-                        updateDate.call(self,imageOnLoad,this,winSize);
-                    },false);
-                    image.addEventListener('error',function(){
-                        updateDate.call(self,imageOnLoad,this,winSize);
-                    },false);
-                });
-            }else{
-                self.probeData.first_frame_time = 'no_image';
-                self.trigger('firstFrameEnd',self.probeData.first_frame_time);
-            }
+            self.updateFirstFrameTime();
         });
         this.getFirstFrameTime = utils.noop;
+    },
+
+    'updateFirstFrameTime' : function(){
+        var self = this;
+        var images = Array.prototype.slice.call(document.getElementsByTagName('img'),0);
+        if(images && images.length){
+            var updateDateAfter = updateDate.afterCalled(images.length, function(date){
+                if(!date) return;
+                self.probeData.first_frame_time = date;
+                self.trigger('firstFrameEnd',date);
+            });
+            images.forEach(function(image){
+                var imgSrc = image.src;
+                if(imgSrc){
+
+                    var handler = function(){
+                        updateDateAfter(image,winSize);
+                        fakeImage.onload = undefined;
+                        fakeImage.onerror = undefined;
+                        fakeImage = undefined;
+                    }
+
+                    image.addEventListener('load',handler,false);
+
+                    image.addEventListener('error',handler,false);
+
+                    var fakeImage = new Image();
+                    fakeImage.onload = handler;
+                    fakeImage.onerror = handler;
+                    fakeImage.src = imgSrc;
+                }
+            });
+        }else{
+            self.probeData.first_frame_time = window.firstPaintTime || 'no_image';
+            self.trigger('firstFrameEnd',self.probeData.first_frame_time);
+        }
     },
 
     /**
