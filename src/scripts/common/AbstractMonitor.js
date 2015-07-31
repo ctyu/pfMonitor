@@ -5,7 +5,6 @@ var utils = require('./utils.js'),
 QClass.define('pfMonitor.common.AbstractMonitor',{
     'initialize' : function(){
         this.probeCache = {};
-        this.probeDataCache = {};
     },
 
     'regProbe' : (function(){
@@ -16,16 +15,13 @@ QClass.define('pfMonitor.common.AbstractMonitor',{
                 regList.push(probeName);
                 self.probeCache[probeName] = probe;
                 probe.on('workDone',function(probeData){
-                    self.probeDataCache[probeName] = probeData;
-                    self.trigger('probeWorkDone',{
-                        'name' : probeName,
-                        'data' : probeData
-                    });
+                    self.onProbeWorkDone && self.onProbeWorkDone(probeName,probeData);
                     var index = regList.indexOf(probeName);
                     if(index >= 0){
                         regList.splice(index,1);
                     }
                     if(regList.length === 0){
+                        self.onMeasureEnd && self.onMeasureEnd();
                         self.trigger('measureEnd',self.probeDataCache);
                     }
                 })

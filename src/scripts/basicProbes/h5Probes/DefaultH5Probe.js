@@ -63,7 +63,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         var self = this;
         if (typeof window.chrome !== 'undefined') {
             // 支持chrome
-            var loadTime = window.chrome.loadTime();
+            var loadTime = window.chrome.loadTimes();
             var first_paint_secs = loadTime && loadTime.firstPaintTime;
             if( !first_paint_secs ){
                 window.requestAnimationFrame(function() {
@@ -131,6 +131,8 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
 
                     var handler = function(){
                         updateDateAfter(image,winSize);
+                        image.removeEventListener('load',handler);
+                        image.removeEventListener('error',handler);
                         fakeImage.onload = undefined;
                         fakeImage.onerror = undefined;
                         fakeImage = undefined;

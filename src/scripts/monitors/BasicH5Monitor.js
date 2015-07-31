@@ -8,6 +8,11 @@ var ErrorProbe = require('../basicProbes/commonProbes/ErrorProbe.js'),
 QClass.define('pfMonitor.Monitor.BasicH5Monitor',{
     'singleton' : true,
 
+    'initialize' : function(){
+        this.parent();
+        this.probeDataCache = {};
+    },
+
     'extend' : AbstractMonitor,
 
     'init' : function(probeManager){
@@ -25,6 +30,10 @@ QClass.define('pfMonitor.Monitor.BasicH5Monitor',{
             'errorProbe' : errorProbe,
             'defaultH5Probe' : defaultH5Probe
         });
+    },
+
+    'onProbeWorkDone' : function(probeName,probeData){
+        this.probeDataCache[probeName] = probeData;
     },
 
     'updateFirstFrameTime' : function(){

@@ -23,6 +23,7 @@ QClass.define('pfMonitor.common.AbstractProbe',{
         this.status = 'pending';
         this.probeData = null;
         opts && opts.once && (this.__once = true);
+        this.__bindEvents();
     },
 
     'run' : function(){
