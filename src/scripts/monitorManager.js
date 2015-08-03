@@ -16,8 +16,12 @@ QClass.define('pfMonitor.MonitorManager',{
                 self.trigger('monitorMeasureEnd',monitorName);
                 monitorDataCache[monitorName] = monitorData;
                 var index = childMonitor.indexOf(monitorName);
-                childMonitor.splice(index,1);
-                self.trigger('allMeasureEnd',monitorDataCache);
+                if(index >= 0){
+                    childMonitor.splice(index,1);
+                }
+                if(!childMonitor.length){
+                    self.trigger('allMeasureEnd',monitorDataCache);
+                }
             })
         }
     })(),

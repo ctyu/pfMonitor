@@ -23,6 +23,9 @@ var QClass = window.QClass,
 function updateDate(imageEl, winSize){
     if(imageEl){
         var imgPos = utils.position(imageEl);
+        // if image is remove from DOM Tree
+        // return
+        if(imgPos.top !== imgPos.top || imgPos.left !== imgPos.left) return;
         if(winSize.height > imgPos.top && winSize.width > imgPos.left){
             return Date.now();
         }

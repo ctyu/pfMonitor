@@ -15,7 +15,6 @@ QClass.define('pfMonitor.Probes.H5Probes.AjaxProbe',{
             override(this);
         }
     }
-
 });
 
 function override(probe){
@@ -31,58 +30,71 @@ function override(probe){
     }
 
     XMLHttpRequest.prototype.send = function(){
-        if(this !== XMLHttpRequest.prototype && this.addEventListener && probe.status === 'working'){
-            // call by instance & probe is working
-            var startTime;
-            
-            var loadHandler = function(e){
-                if(this.readyState === 2){
-                    startTime = Date.now();
-                }
-                if(this.readyState === 4){
-                    var timeUsed = Date.now() - startTime;
-                    probe.trigger('ajaxLoadSuccess',{
-                        'requestUrl' : this.$pfm_rqUrl,
-                        'size' : (Math.max(e.total,e.loaded) || this.getResponseHeader('Content-Length')) / 1024,//content size by KB
-                        'afterSend' : timeUsed,
-                        'xxxSend' : Date.now() - e.timeStamp
-                    });
-                    if( timeUsed > probe.limitTime){
-                        // timeout
-                        probe.trigger('ajaxOutLimitTime',{
+        try{
+            if(this !== XMLHttpRequest.prototype && this.addEventListener && probe.status === 'working'){
+                // call by instance & probe is working   
+                var startTime = Date.now();         
+                var loadHandler = function(e){
+                    if(this.readyState === 4){
+                        var endTime = Date.now();
+                        var timeUsed = getTimeUsed(startTime,endTime,this.$pfm_rqUrl);
+                        probe.trigger('ajaxLoadSuccess',{
                             'requestUrl' : this.$pfm_rqUrl,
+                            'size' : (Math.max(e.total,e.loaded) || this.getResponseHeader('Content-Length')) / 1024,//content size by KB
                             'afterSend' : timeUsed
                         });
+                        if( timeUsed > probe.limitTime){
+                            // timeout
+                            probe.trigger('ajaxOutLimitTime',{
+                                'requestUrl' : this.$pfm_rqUrl,
+                                'afterSend' : timeUsed
+                            });
+                        }
                     }
                 }
-            }
 
-            var abortHandler = function(){
-                var timeUsed = Date.now() - startTime;
-                probe.trigger('ajaxAborted',{
-                    'requestUrl' : this.$pfm_rqUrl,
-                    'afterSend' : timeUsed
-                });
-            }
+                var abortHandler = function(){
+                    var endTime = Date.now();
+                    var timeUsed = getTimeUsed(startTime,endTime,this.$pfm_rqUrl);
+                    probe.trigger('ajaxAborted',{
+                        'requestUrl' : this.$pfm_rqUrl,
+                        'afterSend' : timeUsed
+                    });
+                }
 
-            var errorHandler = function(){
-                probe.trigger('ajaxError',{
-                    'requestUrl' : this.$pfm_rqUrl,
-                    'status' : this.status
-                });
-            }
+                var errorHandler = function(){
+                    probe.trigger('ajaxError',{
+                        'requestUrl' : this.$pfm_rqUrl,
+                        'status' : this.status
+                    });
+                }
 
-            // fix bug
-            // call open & send methods in same XMLHttpRequest instance repeatedly
-            this.removeEventListener('readystatechange',loadHandler);
-            this.removeEventListener('abort',abortHandler);
-            this.removeEventListener('error',errorHandler);
-            this.addEventListener('readystatechange',loadHandler,false);
-            this.addEventListener('abort',abortHandler,false);
-            this.addEventListener('error',errorHandler,false);
+                // fix bug
+                // call open & send methods in same XMLHttpRequest instance repeatedly
+                this.removeEventListener('load',loadHandler);
+                this.removeEventListener('abort',abortHandler);
+                this.removeEventListener('error',errorHandler);
+                this.addEventListener('load',loadHandler,false);
+                this.addEventListener('abort',abortHandler,false);
+                this.addEventListener('error',errorHandler,false);
+            }
+        }
+        catch(e){
+            probe.trigger('override_error');
         }
         origSend.apply(this, arguments);
     }
+}
+
+function getTimeUsed(startTime,endTime,entryName){
+    if(window.performance && window.performance.getEntriesByName){
+        var entry = window.performance.getEntriesByName(entryName);
+        if(entry){
+            startTime = Math.max(entry.startTime,entry.secureConnectionStart) || startTime;
+            endTime = entry.responseEnd || endTime;
+        }
+    }
+    return endTime - startTime;
 }
 
 
