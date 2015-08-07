@@ -155,6 +155,33 @@ function supportCustEvent(obj){
     }
 }
 
+function classExtend(target, params, notOverridden){
+    if(arguments.length === 1){
+        params = target;
+        target = this;
+        notOverridden = false;
+    }else{
+        if(typeof params === 'boolean'){
+            notOverridden = params;
+            params = target;
+            target = this;
+        }
+    }
+    target = target || this;
+    params = params || {};
+    for(var key in params){
+        var value = params[key];
+        var prev = target[ key ];
+        if (prev && notOverridden === true)
+            return;
+        target[ key ] = value;
+        if (typeof value === 'function') {
+            if (prev)
+                value.$prev = prev;
+        }
+    }
+}
+
 module.exports = {
     'core_type' : core_type,
     'logger' : logger,
@@ -162,5 +189,6 @@ module.exports = {
     'winSize' : winSize,
     'position' : _position,
     'noop' : noop,
-    'supportCustEvent' : supportCustEvent
+    'supportCustEvent' : supportCustEvent,
+    'classExtend' : classExtend
 }

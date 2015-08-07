@@ -1,4 +1,5 @@
 require('QClass');
+require('../../common/AbstractProbe.js');
 var utils = require('../../common/utils.js');
 var QClass = window.QClass,
     ns = window.pfMonitor.common,
@@ -64,6 +65,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
      */
     'getFirstPaintTime' : function(){
         var self = this;
+        if(self.probeData.first_paint) return self.probeData.first_paint;
         if (typeof window.chrome !== 'undefined') {
             // 支持chrome
             var loadTime = window.chrome.loadTimes();
@@ -72,21 +74,21 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
                 window.requestAnimationFrame(function() {
                     loadTime = window.chrome.loadTime();
                     first_paint_secs = loadTime && loadTime.firstPaintTime;
-                    self.probeData.first_paint = first_paint_secs * 1000;
+                    self.probeData.first_paint = parseInt(first_paint_secs * 1000);
                     self.trigger('firstPaintEnd',self.probeData.first_paint);
                 });
             }else{
-                self.probeData.first_paint = first_paint_secs * 1000;
+                self.probeData.first_paint = parseInt(first_paint_secs * 1000);
                 self.trigger('firstPaintEnd',self.probeData.first_paint);
             }
         } else if (window.performance && window.performance.timing && (window.performance.timing.msFirstPaint !== undefined)) {
             window.setTimeout(function() {
-                self.probeData.first_paint = window.performance.timing.msFirstPaint;
+                self.probeData.first_paint = parseInt(window.performance.timing.msFirstPaint);
                 self.trigger('firstPaintEnd',self.probeData.first_paint);
             }, 1000);
         } else {
             // 使用全局firstPaintTime
-            self.probeData.first_paint = window.firstPaintTime;
+            self.probeData.first_paint = window.firstPaintTime || 0;
             self.trigger('firstPaintEnd',window.firstPaintTime);
         }
     },
@@ -97,7 +99,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
      * @return {[type]} [description]
      */
     'getOnLoadTime' : function(){
-        if(this.loadTime) return this.loadTime;
+        if(this.probeData.loadTime) return this.probeData.loadTime;
         var self = this;
         var cb = function(){
             self.probeData.loadTime = performanceTiming.loadEventEnd || Date.now();
@@ -114,12 +116,14 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
     'getFirstFrameTime' : function(){
         var self = this;
         utils.onDomReady(function(){
-            self.updateFirstFrameTime();
+            self.updateFirstFrameTime(true);
         });
-        this.getFirstFrameTime = utils.noop;
+        this.getFirstFrameTime = function(){
+            return this.probeData.first_frame_time;
+        };
     },
 
-    'updateFirstFrameTime' : function(){
+    'updateFirstFrameTime' : function(inner){
         var self = this;
         var images = Array.prototype.slice.call(document.getElementsByTagName('img'),0);
         if(images && images.length){
@@ -152,7 +156,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
                 }
             });
         }else{
-            self.probeData.first_frame_time = window.firstPaintTime || 'no_image';
+            self.probeData.first_frame_time = inner && self.getFirstPaintTime() || Date.now();
             self.trigger('firstFrameEnd',self.probeData.first_frame_time);
         }
     },
@@ -215,9 +219,13 @@ function loadProbes(probeList){
     if(utils.core_type(probes) === 'array'){
         probes.forEach(function(item){
             self.todoChildTask.push(item);
-            self.on(item + 'End',function(){
-                self.checkChildTask(item);
-            })
+            self.on(item + 'End',function(measureData){
+                self.checkChildTask(item, measureData);
+                self.trigger('process',{
+                    'processName' : item,
+                    'value' : measureData
+                });
+            });
         });
         // 分开保证先push后执行
         probes.forEach(function(item){
@@ -234,7 +242,8 @@ function loadProbes(probeList){
  * @return {[type]}                  [description]
  */
 function checkNetInfo(connectionInfo,cb){
-    var type = connectionInfo && connectionInfo.type
+    var type = connectionInfo && connectionInfo.type;
+    var called = false;
     if(type){
         // 可以拿到navigator.connection
         if( !Number.isNaN(parseInt(type)) ){
@@ -245,10 +254,32 @@ function checkNetInfo(connectionInfo,cb){
                 }
             }
         }
-        cb && cb(type);
+        !called && cb && cb(type);
+        called = true;
     }else{
-        // 通过请求时间推测网络类型
-        cb && cb(type);
+        // 如果有桥，那么通过桥
+        if( window.WebViewJavascriptBridge && window.WebViewJavascriptBridge.invoke){
+            window.WebViewJavascriptBridge.invoke('network.getType',function(data){
+                if(data.ret && data.data && data.data.networkType){
+                    !called && cb && cb(data.data.networkType);
+                    called = true;
+                }
+            });
+        }else{
+            document.addEventListener('WebViewJavascriptBridgeReady', function(event) {
+                var WagonBridge = event.bridge;
+                WagonBridge.invoke && WagonBridge.invoke('network.getType',function(data){
+                    if(data.ret && data.data && data.data.networkType){
+                        !called && cb && cb(data.data.networkType);
+                        called = true;
+                    }
+                })
+            });
+        }
+        setTimeout(function(){
+            !called && cb && cb();
+            called = true;
+        },2000);//2秒后超时防止android不回数
     }
 }
 

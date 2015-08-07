@@ -2,7 +2,8 @@ var utils = require('./common/utils.js'),
     probeCache = {},
     defaultRunTimeType = {
         'onDomReady' : utils.onDomReady
-    };
+    },
+    AbstractProbe = require('./common/AbstractProbe.js');
 
 function load(probes){
     if( utils.core_type(probes) === 'object' ){
@@ -21,9 +22,17 @@ function getProbeByName(name){
     return probeCache[name];
 }
 
-window.probeManager = {
-    'load' : load,
-    'getProbeByName' : getProbeByName
+function createProbe(opts){
+    opts = opts || {};
+    var probe = new AbstractProbe();
+    utils.classExtend(probe, opts);
+    return probe;
 }
 
-module.exports = probeManager;
+window.probeManager = {
+    'load' : load,
+    'getProbeByName' : getProbeByName,
+    'createProbe' : createProbe
+}
+
+module.exports = window.probeManager;

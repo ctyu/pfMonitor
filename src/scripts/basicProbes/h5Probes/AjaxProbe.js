@@ -1,4 +1,5 @@
 require('QClass');
+require('../../common/AbstractProbe.js');
 var QClass = window.QClass,
     ns = window.pfMonitor.common;
 
@@ -7,10 +8,8 @@ QClass.define('pfMonitor.Probes.H5Probes.AjaxProbe',{
 
     'singleton' : true,
 
-    'initialize' : function(opts){
+    'initialize' : function(){
         this.parent();
-        var self = this;
-        self.limitTime = opts && opts.limitTime || '10000';//默认10秒的超时预警
         if(window.XMLHttpRequest){
             override(this);
         }
@@ -36,19 +35,20 @@ function override(probe){
                 var startTime = Date.now();         
                 var loadHandler = function(e){
                     if(this.readyState === 4){
-                        var endTime = Date.now();
-                        var timeUsed = getTimeUsed(startTime,endTime,this.$pfm_rqUrl);
-                        probe.trigger('ajaxLoadSuccess',{
-                            'requestUrl' : this.$pfm_rqUrl,
-                            'size' : (Math.max(e.total,e.loaded) || this.getResponseHeader('Content-Length')) / 1024,//content size by KB
-                            'afterSend' : timeUsed
-                        });
-                        if( timeUsed > probe.limitTime){
-                            // timeout
-                            probe.trigger('ajaxOutLimitTime',{
+                        if(this.status === 200){
+                            var endTime = Date.now();
+                            var timeUsed = getTimeUsed(startTime,endTime,this.$pfm_rqUrl);
+                            probe.trigger('ajaxLoadSuccess',{
                                 'requestUrl' : this.$pfm_rqUrl,
+                                'size' : (Math.max(e.total,e.loaded) || this.getResponseHeader('Content-Length')) / 1024,//content size by KB
                                 'afterSend' : timeUsed
                             });
+                        }else{
+                            if(this.status === 0){
+                                abortHandler.call(this);
+                            }else{
+                                errorHandler.call(this);
+                            }
                         }
                     }
                 }

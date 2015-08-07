@@ -6,6 +6,7 @@ QClass.define('pfMonitor.common.AbstractMonitor',{
     'initialize' : function(){
         this.probeCache = {};
         this.regList = [];
+        this.probeDataCache = {};
     },
 
     'regProbe' : function(probeName, probe){
@@ -23,7 +24,10 @@ QClass.define('pfMonitor.common.AbstractMonitor',{
                     self.onMeasureEnd && self.onMeasureEnd();
                     self.trigger('measureEnd',self.probeDataCache);
                 }
-            })
+            });
+            probe.on('process',function(measureData){
+                self.onProcess && self.onProcess(probeName,measureData);
+            });
         }else{
             if ( utils.core_type(probeName) === 'object' ){
                 for(var key in probeName){
@@ -31,6 +35,10 @@ QClass.define('pfMonitor.common.AbstractMonitor',{
                 }
             }
         }
+    },
+
+    'getProbeData' : function(){
+        return this.probeDataCache;
     },
 
     'getProbe' : function(id){

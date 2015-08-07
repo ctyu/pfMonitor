@@ -1,36 +1,50 @@
 !require('QClass');
 var probeManager = require('./probeManager.js'),
     utils = require('./common/utils.js'),
-    monitorCache = {},
-    monitorDataCache = {};
+    childMonitor = {},
+    monitorDataCache = {},
+    childMonitorName = [];
 
 QClass.define('pfMonitor.MonitorManager',{
     'singleton' : true,
 
-    'addMonitor' : (function(){
-        var childMonitor = [];
+    'initialize' : function(opts){
+        this.parent();
+        this.config(opts);
+    },
+
+    '__addMonitor' : (function(){
+        var addedMonitor = [];
         return function(monitorName, monitor){
             var self = this;
-            childMonitor.push(monitorName);
+            addedMonitor.push(monitorName);
+            childMonitor[monitorName] = monitor;
             monitor.on('measureEnd',function(monitorData){
-                self.trigger('monitorMeasureEnd',monitorName);
                 monitorDataCache[monitorName] = monitorData;
-                var index = childMonitor.indexOf(monitorName);
+                var index = addedMonitor.indexOf(monitorName);
                 if(index >= 0){
-                    childMonitor.splice(index,1);
+                    addedMonitor.splice(index,1);
                 }
-                if(!childMonitor.length){
+                if(!addedMonitor.length){
                     self.trigger('allMeasureEnd',monitorDataCache);
                 }
-            })
+                // 广播
+                broadcast(monitorName,'measureEnd',monitorData);
+            });
+            monitor.on('measureProcess',function(data){
+                // 需要广播
+                broadcast(monitorName,'measureProcess',data);
+            });
+            if(!this.monitorId) return;
+            monitor.config(self.monitorId);
+            monitor.init(probeManager);
         }
     })(),
 
     'load' : function(name,monitor){
         if(name && monitor){
-            monitorCache[name] = monitor;
-            monitor.init(probeManager);
-            this.addMonitor(name, monitor);
+            childMonitorName.push(name);
+            this.__addMonitor(name, monitor);
             return monitor;
         }else if( utils.core_type(name) === 'object' ){
             for(var monitorName in name){
@@ -44,31 +58,34 @@ QClass.define('pfMonitor.MonitorManager',{
         return monitorDataCache;
     },
 
-    'getStartTime' : function(){
-        if(!this.startTime){
-            var timing = window.performance && window.performance.timing || {};
-            this.startTime = timing.navigationStart || window.startTime;
-            this.responseEndTime = timing.responseEnd;
-        }
-        return this.startTime;
-    },
-
-    'getResponseEndTime' : function(){
-        if(!this.responseEndTime){
-            var timing = window.performance && window.performance.timing || {};
-            this.startTime = timing.navigationStart || window.startTime;
-            this.responseEndTime = timing.responseEnd;
-        }
-        return this.responseEndTime;
-    },
-
     'getMonitor' : function(name){
-        return monitorCache[name];
+        return childMonitor[name];
+    },
+
+    'config' : function(opts){
+        var self = this;
+        opts = opts || {};
+        if(!this.monitorId && opts.monitorId){
+            this.monitorId = opts.monitorId;
+            childMonitorName.forEach(function(name){
+                childMonitor[name].config(self.monitorId);
+                childMonitor[name].init(probeManager);
+            })
+        }else{
+            this.monitorId = opts.monitorId;
+        }
     }
 });
 
+function broadcast(monitorName, type ,data){
+    childMonitorName.forEach(function(name){
+        if(name !== monitorName){
+            childMonitor[name]['onOtherMonitor' + type] && childMonitor[name]['onOtherMonitor' + type](data);
+        }
+    })
+}
+
 utils.supportCustEvent(window.pfMonitor.MonitorManager);
 
-
-module.exports = new window.pfMonitor.MonitorManager();
+module.exports = window.pfMonitor.MonitorManager;
 
