@@ -15,7 +15,9 @@ QClass.define('pfMonitor.Probes.common.ErrorProbe',{
     'singleton' : true,
 
     'catchError' : function(){
-        console.log(arguments);
+        this.trigger('process',{
+            'processName' : 'jserror'
+        });
     },
 
     'run' : function(){
@@ -24,7 +26,7 @@ QClass.define('pfMonitor.Probes.common.ErrorProbe',{
         var oriWinOnError = window.onerror;
         window.onerror = function(){
             oriWinOnError && oriWinOnError.apply(window, arguments);
-            me.catchError.apply(me, arguments);
+            me.catchError.apply(me);
         }
         this.trigger('workDone');
     }

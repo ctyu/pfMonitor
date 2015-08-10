@@ -56,6 +56,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
         this.probeList = opts.probeList;
         this.probeData = {};
         this.todoChildTask = [];
+        this.freshfirstFrame = opts.freshfirstFrame;
     },
 
 
@@ -115,12 +116,14 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
      */
     'getFirstFrameTime' : function(){
         var self = this;
-        utils.onDomReady(function(){
-            self.updateFirstFrameTime(true);
-        });
-        this.getFirstFrameTime = function(){
-            return this.probeData.first_frame_time;
-        };
+        if(this.probeData.first_frame_time !== undefined){
+            return this.probeData.first_frame_time
+        }
+        if(!this.freshfirstFrame){
+            utils.onDomReady(function(){
+                self.updateFirstFrameTime(true);
+            });
+        }
     },
 
     'updateFirstFrameTime' : function(inner){
@@ -156,6 +159,7 @@ QClass.define('pfMonitor.Probes.H5Probes.DefaultH5Probe',{
                 }
             });
         }else{
+            self.updateFirstFrameTime = utils.noop;
             self.probeData.first_frame_time = inner && self.getFirstPaintTime() || Date.now();
             self.trigger('firstFrameEnd',self.probeData.first_frame_time);
         }

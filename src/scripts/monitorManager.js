@@ -5,6 +5,34 @@ var probeManager = require('./probeManager.js'),
     monitorDataCache = {},
     childMonitorName = [];
 
+var addMonitor = (function(){
+    var addedMonitor = [];
+    return function(monitorName, monitor){
+        var self = this;
+        addedMonitor.push(monitorName);
+        childMonitor[monitorName] = monitor;
+        monitor.on('measureEnd',function(monitorData){
+            monitorDataCache[monitorName] = monitorData;
+            var index = addedMonitor.indexOf(monitorName);
+            if(index >= 0){
+                addedMonitor.splice(index,1);
+            }
+            if(!addedMonitor.length){
+                self.trigger('allMeasureEnd',monitorDataCache);
+            }
+            // 广播
+            broadcast(monitorName,'measureEnd',monitorData);
+        });
+        monitor.on('measureProcess',function(data){
+            // 需要广播
+            broadcast(monitorName,'measureProcess',data);
+        });
+        if(!this.monitorId) return;
+        monitor.config(self.monitorId);
+        monitor.init(probeManager);
+    }
+})();
+
 QClass.define('pfMonitor.MonitorManager',{
     'singleton' : true,
 
@@ -13,38 +41,10 @@ QClass.define('pfMonitor.MonitorManager',{
         this.config(opts);
     },
 
-    '__addMonitor' : (function(){
-        var addedMonitor = [];
-        return function(monitorName, monitor){
-            var self = this;
-            addedMonitor.push(monitorName);
-            childMonitor[monitorName] = monitor;
-            monitor.on('measureEnd',function(monitorData){
-                monitorDataCache[monitorName] = monitorData;
-                var index = addedMonitor.indexOf(monitorName);
-                if(index >= 0){
-                    addedMonitor.splice(index,1);
-                }
-                if(!addedMonitor.length){
-                    self.trigger('allMeasureEnd',monitorDataCache);
-                }
-                // 广播
-                broadcast(monitorName,'measureEnd',monitorData);
-            });
-            monitor.on('measureProcess',function(data){
-                // 需要广播
-                broadcast(monitorName,'measureProcess',data);
-            });
-            if(!this.monitorId) return;
-            monitor.config(self.monitorId);
-            monitor.init(probeManager);
-        }
-    })(),
-
     'load' : function(name,monitor){
         if(name && monitor){
             childMonitorName.push(name);
-            this.__addMonitor(name, monitor);
+            addMonitor.call(this,name, monitor);
             return monitor;
         }else if( utils.core_type(name) === 'object' ){
             for(var monitorName in name){

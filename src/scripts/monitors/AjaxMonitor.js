@@ -112,7 +112,7 @@ QClass.define('pfMonitor.Monitor.AjaxMonitor',{
                     }
                 break;
             }
-            needExecMonitor && this.executive && this.executive.exec && this.executive.exec(measureData);
+            needExecMonitor && this.executive && this.executive(measureData);
             this.trigger('measureProcess',measureData);
         }
     },

@@ -42,6 +42,4 @@ function exec(data){
     url && send(url);
 }
 
-module.exports = {
-    'exec' : exec
-}
+module.exports = exec;
